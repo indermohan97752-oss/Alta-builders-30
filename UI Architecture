@@ -1,0 +1,221 @@
+# Screen 1: Login / signup
+
+```
+┌──────────────────────────────┐
+│                              │
+│           ChatApp            │
+│       Talk in real time      │
+│                              │
+│  ┌────────────────────────┐  │
+│  │ name@company.com       │  │
+│  └────────────────────────┘  │
+│  ┌────────────────────────┐  │
+│  │ Password            👁 │  │
+│  └────────────────────────┘  │
+│                              │
+│  [        Log in         ]   │
+│                              │
+│  Forgot password             │
+│  ──────────  or  ──────────  │
+│  [ Continue with Google ]    │
+│                              │
+│  New here? Create account    │
+└──────────────────────────────┘
+```
+
+- Signup adds: username, display name, confirm password.
+- Data: reads and writes `USER`.
+
+
+# Screen 2: Rooms list
+
+```
+┌──────────────────────────────┐
+│ ☰  Chats            🔍   ＋  │
+├──────────────────────────────┤
+│ [ All ] [ Direct ] [ Groups ]│
+├──────────────────────────────┤
+│ (DT) Design team      10:42  │
+│      Ana: Updated the mock…③ │
+├──────────────────────────────┤
+│ (RK)● Rahul           09:15  │
+│      You: Sounds good        │
+├──────────────────────────────┤
+│ (WT) Weekend trip    Yest.   │
+│      Priya: Booking tickets 🔇│
+├──────────────────────────────┤
+│ (MS) Meera             Mon   │
+│      Photo                 ① │
+├──────────────────────────────┤
+│   Chats          Profile     │
+└──────────────────────────────┘
+```
+
+- ＋ opens: new direct chat or create group.
+- Number badge = unread count; 🔇 = muted; ● on avatar = online.
+- Data: `ROOM_MEMBER` + `ROOM`, latest `MESSAGE` per room, unread count.
+
+
+
+# Screen 3: Chat room
+
+```
+┌──────────────────────────────┐
+│ ←  (DT) Design team       ⋮  │
+│     5 members · Ana typing…  │
+├──────────────────────────────┤
+│          ── Today ──         │
+│                              │
+│ Ana                          │
+│ ┌──────────────────────┐     │
+│ │ Updated the mockups  │     │
+│ └──────────────────────┘     │
+│                        10:40 │
+│                              │
+│     ┌────────────────────┐   │
+│     │ Looks great        │   │
+│     └────────────────────┘   │
+│                10:41 ✓✓ read │
+│                              │
+│ Rahul                        │
+│ ┌──────────────────────┐     │
+│ │ ↪ Ana: Updated the…  │     │
+│ │ Can we ship Friday?  │     │
+│ └──────────────────────┘     │
+├──────────────────────────────┤
+│ 📎 [ Message …        ]  ➤   │
+└──────────────────────────────┘
+```
+
+- Scroll up loads older messages (cursor pagination).
+- Long-press a message: reply, edit, delete, react.
+- ⋮ menu: members, mute, leave room.
+- Data: paginated `MESSAGE` by `room_id`, inserts, `ROOM_MEMBER.last_read_msg_id`; live updates over WebSocket.
+
+
+# Screen 4: Profile / dashboard
+
+```
+┌──────────────────────────────┐
+│ ←  Profile               ✏️  │
+├──────────────────────────────┤
+│           ( SK )●            │
+│        Siddharth K.          │
+│        @sid_k · Online       │
+├──────────────────────────────┤
+│  ┌──────┐ ┌──────┐ ┌──────┐  │
+│  │  12  │ │  3   │ │  48  │  │
+│  │Rooms │ │Unread│ │ Sent │  │
+│  │      │ │      │ │today │  │
+│  └──────┘ └──────┘ └──────┘  │
+├──────────────────────────────┤
+│ Account                      │
+│  Email                    >  │
+│  Change password          >  │
+│ Preferences                  │
+│  Notifications        [ON ]  │
+│  Show last seen       [ON ]  │
+├──────────────────────────────┤
+│  Log out                     │
+└──────────────────────────────┘
+```
+
+- Data: reads and updates `USER`; counts from `ROOM_MEMBER` and `MESSAGE`.
+
+
+
+# Chat app design docs
+
+| File | Contents |
+|---|---|
+| [schema.md](schema.md) | Entity relationship diagram, table definitions, indexes, design notes |
+| [wireframes/01-login-signup.md](wireframes/01-login-signup.md) | Login / signup screen |
+| [wireframes/02-rooms-list.md](wireframes/02-rooms-list.md) | Rooms list screen |
+| [wireframes/03-chat-room.md](wireframes/03-chat-room.md) | Chat room screen |
+| [wireframes/04-profile.md](wireframes/04-profile.md) | Profile / dashboard screen |
+
+
+
+# Data schema
+
+```mermaid
+erDiagram
+  USER ||--o{ ROOM_MEMBER : joins
+  ROOM ||--o{ ROOM_MEMBER : has
+  USER ||--o{ MESSAGE : sends
+  ROOM ||--o{ MESSAGE : contains
+  USER ||--o{ ROOM : creates
+  MESSAGE |o--o{ MESSAGE : replies_to
+  USER {
+    uuid id PK
+    string username UK
+    string email UK
+    string password_hash
+    string display_name
+    string avatar_url
+    string bio
+    enum status "online, away, offline"
+    timestamp last_seen_at
+    timestamp created_at
+  }
+  ROOM {
+    uuid id PK
+    enum type "direct, group"
+    string name "NULL for direct"
+    string description
+    string avatar_url
+    uuid created_by FK
+    timestamp created_at
+  }
+  ROOM_MEMBER {
+    uuid room_id PK, FK
+    uuid user_id PK, FK
+    enum role "owner, admin, member"
+    uuid last_read_msg_id FK
+    boolean is_muted
+    timestamp joined_at
+  }
+  MESSAGE {
+    uuid id PK "time-sortable"
+    uuid room_id FK
+    uuid sender_id FK
+    uuid reply_to_id FK "nullable"
+    enum type "text, image, file, system"
+    text content
+    string attachment_url
+    timestamp created_at
+    timestamp edited_at
+    timestamp deleted_at "soft delete"
+  }
+```
+
+## Relationships
+
+- `USER` and `ROOM` are many-to-many through `ROOM_MEMBER`, which also stores per-user state (role, mute, read position).
+- A `USER` sends many `MESSAGE`s; a `ROOM` contains many `MESSAGE`s.
+- `MESSAGE.reply_to_id` references another message for threaded replies.
+- `ROOM.created_by` references the creating `USER`.
+
+## Indexes
+
+| Index | Purpose |
+|---|---|
+| `MESSAGE (room_id, created_at DESC)` | Latest messages and infinite scroll |
+| `ROOM_MEMBER (user_id)` | Rooms list for a user |
+| `USER (username)`, `USER (email)` | Login and search (covered by UNIQUE) |
+
+## Design notes
+
+- Direct messages are `ROOM` rows with `type = 'direct'` and exactly two members. Enforce one room per pair with a `dm_key` column (the two sorted user IDs joined).
+- Unread count = messages in the room newer than `ROOM_MEMBER.last_read_msg_id`.
+- Use cursor pagination (`WHERE created_at < :cursor LIMIT 30`), not `OFFSET`.
+- Write to the database first, then broadcast over WebSocket. Use Redis pub/sub to relay between servers, and Redis with a TTL for presence and typing state.
+
+## Screen to table mapping
+
+| Screen | Data |
+|---|---|
+| Login / signup | `USER` |
+| Rooms list | `ROOM_MEMBER` + `ROOM` + latest `MESSAGE` + unread count |
+| Chat room | `MESSAGE` (paginated), inserts, `ROOM_MEMBER.last_read_msg_id` |
+| Profile | `USER` + counts from `ROOM_MEMBER` and `MESSAGE` |
