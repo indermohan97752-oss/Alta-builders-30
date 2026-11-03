@@ -231,3 +231,6 @@ erDiagram
 | Rooms list | `ROOM_MEMBER` + `ROOM` + latest `MESSAGE` + unread count |
 | Chat room | `MESSAGE` (paginated), inserts, `ROOM_MEMBER.last_read_msg_id` |
 | Profile | `USER` + counts from `ROOM_MEMBER` and `MESSAGE` |
+
+
+
