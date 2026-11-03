@@ -1,3 +1,15 @@
+SCHEMA DIAGRAM AND 4 WIREFRAMES
+docs/
+├── README.md                    index of the docs
+├── schema.md                    ER diagram (Mermaid), relationships, indexes, notes
+└── wireframes/
+    ├── 01-login-signup.md
+    ├── 02-rooms-list.md
+    ├── 03-chat-room.md
+    └── 04-profile.md
+
+
+
 # Screen 1: Login / signup
 
 ```
