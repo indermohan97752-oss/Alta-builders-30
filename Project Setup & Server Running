@@ -1,0 +1,27 @@
+feat: scaffold chat app with auth signup, health check and Postman collection
+
+Initial monorepo for a real-time chat app (React + Express + PostgreSQL).
+
+Backend
+- Express + Socket.IO server with validated env config (zod), fail-fast on
+  bad or missing variables
+- PostgreSQL pool with startup retry; GET /health (and /api/health) returns
+  503 when the database is unreachable
+- SQL migration runner (npm run db:migrate) tracked in schema_migrations
+- Migrations: 001 schema, 002 user constraints (case-insensitive username,
+  lowercase email, bcrypt-only password_hash CHECK)
+- User model that never selects or returns password_hash outside login
+- POST /api/auth/signup: zod validation (72-byte password cap), bcrypt
+  hashing, 409 on duplicates incl. race via unique-violation handling
+- POST /api/auth/login with timing-safe unknown-user path
+- Rooms, users and message-history REST routes; Socket.IO events
+- Unit tests for signup validation and password hashing
+
+Frontend
+- React + Vite + React Router with the four screens from the wireframes
+
+Tooling and docs
+- docker-compose for Postgres and Redis
+- Postman collection + npm run postman:sync (key read from gitignored
+  backend/.env, never committed)
+- docs/: ER diagram, architecture overview, 4 wireframes
