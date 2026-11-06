@@ -1,0 +1,23 @@
+feat(progress): update build tracking to 50% completion milestone
+
+- Infrastructure & Security Setup (80% complete):
+  * Define initial database schemas and database migration files (001-003).
+  * Configure Docker environment setup, environment variables, and /health endpoint.
+  * Implement authentication endpoints for signup and login utilizing bcrypt hashing.
+  * Add input validation rules and database constraints against plaintext passwords.
+  * Implement Login API with JWT & Protected Routes integration.
+
+- Room Management & Communication Logic (80% complete):
+  * Add backend services for creating, renaming, deleting, and searching rooms.
+  * Implement member role assignments, user muting, and room leave with ownership transfer.
+  * Integrate real-time socket events, direct chat management, and system message notifications.
+  * Verify room permission rules with passing unit tests (4/4 passing).
+
+- System Documentation & API Contracts (100% complete):
+  * Complete core ER diagrams, system architecture blueprints, and 4 layout wireframes.
+  * Draft Postman collection covering initial 9 API endpoints.
+
+- Frontend UI Construction (50% complete):
+  * Build functional prototype views for login, signup, room list, chat room, and user profile.
+
+Project assigned by ALTA School of Technology under the Alta Builders Challenge.
