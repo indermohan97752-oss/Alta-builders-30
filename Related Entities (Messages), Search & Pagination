@@ -1,0 +1,73 @@
+🛠️ Day 7: Related Entities (Messages), Search & Pagination
+📌 Objective
+Introduce the second core entity (Messages), link it with rooms and users, and implement search filtering and pagination on your room/message queries.
+
+📝 Workflow & Files to Create
+Message Model (backend/models/Message.js): Schema linking messages to a specific room and sender user.
+
+Message Controller (backend/controllers/messageController.js): Handles fetching paginated messages per room.
+
+Search & Filter Logic: Add query parameters (search, page, limit) to room listing endpoints.
+
+💻 Source Code
+1. Message Model (backend/models/Message.js)
+JavaScript
+const mongoose = require('mongoose');
+
+const messageSchema = new mongoose.Schema(
+  {
+    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    room: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', required: true },
+    content: { type: String, required: true, trim: true },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('Message', messageSchema);
+2. Paginated Search for Rooms (backend/controllers/roomController.js update)
+Add this enhanced getRooms method to handle search and pagination:
+
+JavaScript
+exports.getRoomsPaginated = async (req, res) => {
+  try {
+    const { search = '', page = 1, limit = 10 } = req.query;
+    const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+
+    const rooms = await Room.find(query)
+      .populate('admin', 'name email')
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
+
+    const total = await Room.countDocuments(query);
+
+    res.status(200).json({
+      rooms,
+      totalPages: Math.ceil(total / limit),
+      currentPage: Number(page),
+      totalRooms: total,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching paginated rooms', error: error.message });
+  }
+};
+3. Message Controller (backend/controllers/messageController.js)
+JavaScript
+const Message = require('../models/Message');
+
+exports.getRoomMessages = async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+
+    const messages = await Message.find({ room: roomId })
+      .populate('sender', 'name email')
+      .sort({ createdAt: -1 }) // newest first for pagination
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    res.status(200).json(messages.reverse()); // return chronological order
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching messages', error: error.message });
+  }
+};
