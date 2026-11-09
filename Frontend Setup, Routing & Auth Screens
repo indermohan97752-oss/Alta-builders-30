@@ -1,0 +1,108 @@
+🛠️ Day 8: Frontend Setup, Routing & Auth Screens
+📌 Objective
+Initialize your React frontend application, set up client-side routing (react-router-dom), configure a global API client (axios), and build functional Login and Signup screens connected to your backend APIs.
+
+📝 Workflow & Files to Create
+Frontend Init & Dependencies: React + Vite, Axios, React Router.
+
+API Helper (frontend/src/utils/api.js): Centralized Axios configuration.
+
+Auth Pages (frontend/src/pages/Login.jsx, Signup.jsx): Interactive UI forms connected to backend authentication.
+
+💻 Source Code
+1. Centralized Axios Instance (frontend/src/services/api.js)
+JavaScript
+import axios from 'axios';
+
+const API = axios.create({
+  baseURL: 'http://localhost:5000/api',
+});
+
+// Automatically attach JWT token to requests if available
+API.interceptors.request.use((req) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    req.headers.Authorization = `Bearer ${token}`;
+  }
+  return req;
+});
+
+export default API;
+2. Signup Component (frontend/src/pages/Signup.jsx)
+JavaScript
+import React, { useState } from 'react';
+import API from '../services/api';
+import { useNavigate, Link } from 'react-router-dom';
+
+export default function Signup() {
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await API.post('/auth/signup', formData);
+      navigate('/login');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Signup failed');
+    }
+  };
+
+  return (
+    <div className="flex justify-center items-center h-screen bg-gray-100">
+      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-96">
+        <h2 className="text-2xl font-bold mb-6 text-center">Create Account</h2>
+        {error && <p className="text-red-500 mb-4 text-sm">{error}</p>}
+        <input
+          type="text"
+          placeholder="Name"
+          className="w-full p-2 mb-4 border rounded"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full p-2 mb-4 border rounded"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full p-2 mb-4 border rounded"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          required
+        />
+        <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
+          Sign Up
+        </button>
+        <p className="mt-4 text-sm text-center">
+          Already have an account? <Link to="/login" className="text-blue-600">Login</Link>
+        </p>
+      </form>
+    </div>
+  );
+}
+3. Main Router Setup (frontend/src/App.jsx)
+JavaScript
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </Router>
+  );
+}
