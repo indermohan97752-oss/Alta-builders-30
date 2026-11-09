@@ -1,0 +1,110 @@
+🛠️ Day 6: CRUD APIs for Rooms (Behind Auth)
+📌 Objective
+Build full Create, Read, Update, and Delete (CRUD) operations for your main entity (Chat Rooms), ensuring all endpoints are protected behind your JWT authentication middleware.
+
+📝 Workflow & Files to Create
+Room Model (backend/models/Room.js): Defines the room schema (name, description, creator/admin).
+
+Room Controller (backend/controllers/roomController.js): Handles logic for creating, fetching, updating, and deleting rooms.
+
+Room Routes (backend/routes/rooms.js): Maps endpoints to controller functions, protected by auth middleware.
+
+💻 Source Code
+1. Room Model (backend/models/Room.js)
+JavaScript
+const mongoose = require('mongoose');
+
+const roomSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true, trim: true },
+    description: { type: String, default: '' },
+    admin: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('Room', roomSchema);
+2. Room Controller (backend/controllers/roomController.js)
+JavaScript
+const Room = require('../models/Room');
+
+// Create Room
+exports.createRoom = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const existingRoom = await Room.findOne({ name });
+    if (existingRoom) {
+      return res.status(400).json({ message: 'Room with this name already exists' });
+    }
+
+    const room = await Room.create({
+      name,
+      description,
+      admin: req.user.id, // Comes from auth middleware
+    });
+
+    res.status(201).json({ message: 'Room created successfully', room });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating room', error: error.message });
+  }
+};
+
+// Get All Rooms
+exports.getRooms = async (req, res) => {
+  try {
+    const rooms = await Room.find().populate('admin', 'name email');
+    res.status(200).json(rooms);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching rooms', error: error.message });
+  }
+};
+
+// Update Room
+exports.updateRoom = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    if (room.admin.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to update this room' });
+    }
+
+    room.name = req.body.name || room.name;
+    room.description = req.body.description || room.description;
+    const updatedRoom = await room.save();
+
+    res.status(200).json({ message: 'Room updated successfully', updatedRoom });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating room', error: error.message });
+  }
+};
+
+// Delete Room
+exports.deleteRoom = async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+
+    if (room.admin.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to delete this room' });
+    }
+
+    await room.deleteOne();
+    res.status(200).json({ message: 'Room deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting room', error: error.message });
+  }
+};
+3. Room Routes (backend/routes/rooms.js)
+JavaScript
+const express = require('express');
+const router = express.Router();
+const { createRoom, getRooms, updateRoom, deleteRoom } = require('../controllers/roomController');
+const auth = require('../middleware/auth'); // JWT auth middleware from Day 5
+
+router.post('/', auth, createRoom);
+router.get('/', auth, getRooms);
+router.put('/:id', auth, updateRoom);
+router.delete('/:id', auth, deleteRoom);
+
+module.exports = router;
