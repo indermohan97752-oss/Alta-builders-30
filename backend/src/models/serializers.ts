@@ -1,8 +1,8 @@
-/** Mongo documents -> deliberately minimal public JSON. Private profile blobs are
- * returned only by the authenticated /users/me route, never by generic serializers. */
+/** Mongo documents -> deliberately minimal public JSON. */
 export const toPublicUser = (u: any) => ({
   id: String(u._id),
   username: u.username as string,
+  role: (u.role ?? "user") as "user" | "admin",
   status: u.status as "online" | "away" | "offline",
   created_at: u.createdAt as Date,
 });
