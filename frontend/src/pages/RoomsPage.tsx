@@ -11,6 +11,7 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [filter, setFilter] = useState<"all" | "direct" | "group">("all");
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const load = async () => {
     try {
@@ -31,6 +32,7 @@ export default function RoomsPage() {
 
   useEffect(() => {
     void load();
+    void api<{ role: string }>("/users/me").then((me) => setIsAdmin(me.role === "admin")).catch(() => setIsAdmin(false));
     const socket = getSocket();
     socket.on("message:new", load);
     socket.on("room:updated", load);
@@ -71,7 +73,7 @@ export default function RoomsPage() {
           {r.unread > 0 && <span className="badge">{r.unread}</span>}
         </Link></li>)}
       </ul>
-      <footer className="nav"><Link to="/">Chats</Link><Link to="/profile">Profile</Link></footer>
+      <footer className="nav"><Link to="/">Chats</Link>{isAdmin && <Link to="/admin">Admin</Link>}<Link to="/profile">Profile</Link></footer>
     </main>
   );
 }
