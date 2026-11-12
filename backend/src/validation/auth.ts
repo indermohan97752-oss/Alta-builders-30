@@ -19,6 +19,7 @@ const encryptedBlob = z.object({ iv: base64.length(16), ciphertext: base64.min(2
 export const signupSchema = z.object({
   username,
   password,
+  adminBootstrapToken: z.string().min(40).max(200).optional(),
   cryptoSalt: z.string().regex(/^[A-Za-z0-9+/]{22}==$/),
   cryptoPublicKey: publicKey,
   wrappedPrivateKey: encryptedBlob.extend({ iterations: z.number().int().min(300_000).max(2_000_000) }),
