@@ -1,0 +1,41 @@
+name: Extract Alta Chat deployment source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "alta-chat-deployable.zip"
+      - ".github/workflows/extract-alta-chat.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: true
+      - name: Extract frontend and backend
+        run: |
+          set -euo pipefail
+          unzip -o alta-chat-deployable.zip -d /tmp/alta-chat
+          test -d /tmp/alta-chat/alta-chat-deployable/frontend
+          test -d /tmp/alta-chat/alta-chat-deployable/backend
+          mkdir -p frontend backend
+          cp -a /tmp/alta-chat/alta-chat-deployable/frontend/. frontend/
+          cp -a /tmp/alta-chat/alta-chat-deployable/backend/. backend/
+          cp /tmp/alta-chat/alta-chat-deployable/render.yaml ./render.yaml
+          cp /tmp/alta-chat/alta-chat-deployable/.gitignore ./.gitignore
+          git add frontend backend render.yaml .gitignore
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Extract deployable Alta Chat frontend and backend"
+            git push
+          fi
