@@ -164,13 +164,13 @@ export async function addMembers(
 ): Promise<string[]> {
   const room = await RoomModel.findById(roomId).select("members currentKeyVersion membershipRevision").lean() as any;
   if (!room) return [];
-  const current = new Set(room.members.map((m: any) => idStr(m.user)));
+  const current = new Set<string>(room.members.map((m: any) => idStr(m.user)));
   const candidates = userIds.filter((id) => !current.has(id));
-  const users = await UserModel.find({ _id: { $in: candidates } }).select("_id").lean();
-  const toAdd = users.map((u) => u._id);
+  const users = await UserModel.find({ _id: { $in: candidates } }).select("_id").lean() as Array<{ _id: Types.ObjectId }>;
+  const toAdd: Types.ObjectId[] = users.map((u) => u._id);
   if (!toAdd.length) return [];
   const resultingIds = [...current, ...toAdd.map(idStr)].sort();
-  const envelopeMap = new Map(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
+  const envelopeMap = new Map<string, string>(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
   if (resultingIds.length !== envelopeMap.size || resultingIds.some((id) => !envelopeMap.has(id))) {
     throw new Error("Key rotation must include one encrypted key for every current and new member");
   }
@@ -210,8 +210,8 @@ export async function removeMember(
   if (!actor || !target || rank[actor.role] <= rank[target.role]) return false;
 
   const remainingMembers = room.members.filter((m: any) => idStr(m.user) !== userId);
-  const remainingIds = remainingMembers.map((m: any) => idStr(m.user)).sort();
-  const envelopeMap = new Map(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
+  const remainingIds: string[] = remainingMembers.map((m: any) => idStr(m.user)).sort();
+  const envelopeMap = new Map<string, string>(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
   if (!remainingIds.length || remainingIds.length !== envelopeMap.size || remainingIds.some((id) => !envelopeMap.has(id))) {
     throw new Error("Key rotation must include one encrypted key for every remaining member");
   }
@@ -220,7 +220,7 @@ export async function removeMember(
   // update that both $pulls and $pushes the same array path.
   const nextEnvelopes = [
     ...room.keyEnvelopes.filter((e: any) => idStr(e.user) !== userId),
-    ...remainingIds.map((id) => ({ user: id, wrappedKey: envelopeMap.get(id), keyVersion: nextVersion })),
+    ...remainingIds.map((id: string) => ({ user: id, wrappedKey: envelopeMap.get(id)!, keyVersion: nextVersion })),
   ];
   const targetFilter = actor.role === "owner"
     ? { "members.user": userId }
@@ -300,8 +300,8 @@ export async function leaveGroup(
   }
 
   if (!rotation) throw new Error("Leaving a group requires rotating its encryption key");
-  const remainingIds = remainingMembers.map((m: any) => idStr(m.user)).sort();
-  const envelopeMap = new Map(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
+  const remainingIds: string[] = remainingMembers.map((m: any) => idStr(m.user)).sort();
+  const envelopeMap = new Map<string, string>(rotation.keyEnvelopes.map((e) => [e.userId, e.wrappedKey]));
   if (remainingIds.length !== envelopeMap.size || remainingIds.some((id) => !envelopeMap.has(id))) {
     throw new Error("Key rotation must include one encrypted key for every remaining member");
   }
@@ -317,7 +317,7 @@ export async function leaveGroup(
   const nextVersion = Number(room.currentKeyVersion ?? 1) + 1;
   const nextEnvelopes = [
     ...room.keyEnvelopes.filter((e: any) => idStr(e.user) !== userId),
-    ...remainingIds.map((id) => ({ user: id, wrappedKey: envelopeMap.get(id), keyVersion: nextVersion })),
+    ...remainingIds.map((id: string) => ({ user: id, wrappedKey: envelopeMap.get(id)!, keyVersion: nextVersion })),
   ];
   const updated = await RoomModel.updateOne(
     { _id: roomId, currentKeyVersion: room.currentKeyVersion, membershipRevision: room.membershipRevision ?? 0, "members.user": userId },
