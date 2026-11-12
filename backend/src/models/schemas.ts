@@ -15,14 +15,12 @@ const wrappedPrivateKeySchema = new Schema(
   { _id: false },
 );
 
-// Usernames and status are operational metadata. Email, display name, bio and
-// avatar data live only inside encryptedProfile (decrypted in the browser).
 const userSchema = new Schema(
   {
     username: { type: String, required: true, trim: true, match: /^[A-Za-z0-9_]{3,30}$/ },
     usernameLower: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true, select: false, match: [BCRYPT, "passwordHash must be a bcrypt hash"] },
-    // Incremented on logout to revoke every previously issued session token.
+    role: { type: String, enum: ["user", "admin"], default: "user", index: true },
     sessionVersion: { type: Number, required: true, default: 0, min: 0 },
     cryptoPublicKey: { type: Schema.Types.Mixed, required: true },
     cryptoSalt: { type: String, required: true, minlength: 20, maxlength: 64 },
@@ -36,6 +34,15 @@ const userSchema = new Schema(
 userSchema.pre("validate", function () {
   if (this.username) this.usernameLower = this.username.toLowerCase();
 });
+
+const adminBootstrapClaimSchema = new Schema(
+  {
+    _id: { type: String, required: true },
+    userId: { type: ObjectId, ref: "User", required: true },
+    claimedAt: { type: Date, default: Date.now },
+  },
+  { collection: "system_claims" },
+);
 
 const memberSchema = new Schema(
   {
@@ -58,8 +65,6 @@ const keyEnvelopeSchema = new Schema(
 const roomSchema = new Schema(
   {
     type: { type: String, enum: ["direct", "group"], required: true },
-    // Never store group names/descriptions in plaintext. These are encrypted by
-    // a room key that is separately wrapped to each authorized member.
     encryptedMetadata: { type: encryptedBlobSchema, required: true },
     keyEnvelopes: { type: [keyEnvelopeSchema], required: true, validate: (v: unknown[]) => v.length > 0 },
     currentKeyVersion: { type: Number, required: true, min: 1, default: 1 },
@@ -83,8 +88,6 @@ const messageSchema = new Schema(
     room: { type: ObjectId, ref: "Room", required: true },
     sender: { type: ObjectId, ref: "User", required: true },
     type: { type: String, enum: ["text", "image", "file", "system"], default: "text" },
-    // `content` is reserved for low-sensitivity system notices only. User chat
-    // text is exclusively ciphertext + IV and is never plaintext in MongoDB.
     content: { type: String, maxlength: 500 },
     encryptedContent: { type: String, minlength: 24, maxlength: 16_384 },
     encryptedIv: { type: String, minlength: 16, maxlength: 16 },
@@ -104,5 +107,6 @@ messageSchema.pre("validate", function () {
 });
 
 export const UserModel = mongoose.model("User", userSchema);
+export const AdminBootstrapClaimModel = mongoose.model("AdminBootstrapClaim", adminBootstrapClaimSchema);
 export const RoomModel = mongoose.model("Room", roomSchema);
 export const MessageModel = mongoose.model("Message", messageSchema);
