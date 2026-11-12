@@ -87,7 +87,7 @@ export async function createAccountBundle(password: string, profile: Record<stri
   const salt = randomBytes(16);
   const dataKey = await derivePasswordKey(password, salt);
   const pair = await crypto.subtle.generateKey(
-    { name: "RSA-OAEP", modulusLength: 3072, publicExponent: toArrayBuffer(new Uint8Array([1, 0, 1])), hash: "SHA-256" } as RsaHashedKeyGenParams,
+    { name: "RSA-OAEP", modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" } as RsaHashedKeyGenParams,
     true,
     ["encrypt", "decrypt"],
   );
