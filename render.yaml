@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: alta-chat-backend
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: cd backend && npm install --no-audit --no-fund && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      - key: TRUST_PROXY
+        value: "0"

@@ -1,0 +1,23 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { isAuthenticated } from "./api";
+import { isCryptoUnlocked } from "./crypto";
+import AuthPage from "./pages/AuthPage";
+import RoomsPage from "./pages/RoomsPage";
+import ChatRoomPage from "./pages/ChatRoomPage";
+import ProfilePage from "./pages/ProfilePage";
+
+function Protected({ children }: { children: JSX.Element }) {
+  return isAuthenticated() && isCryptoUnlocked() ? children : <Navigate to="/login" replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<AuthPage />} />
+      <Route path="/" element={<Protected><RoomsPage /></Protected>} />
+      <Route path="/rooms/:roomId" element={<Protected><ChatRoomPage /></Protected>} />
+      <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
