@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { isAuthenticated } from "./api";
 import { isCryptoUnlocked } from "./crypto";
+import AdminPage from "./pages/AdminPage";
 import AuthPage from "./pages/AuthPage";
 import RoomsPage from "./pages/RoomsPage";
 import ChatRoomPage from "./pages/ChatRoomPage";
@@ -15,6 +16,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<AuthPage />} />
       <Route path="/" element={<Protected><RoomsPage /></Protected>} />
+      <Route path="/admin" element={<Protected><AdminPage /></Protected>} />
       <Route path="/rooms/:roomId" element={<Protected><ChatRoomPage /></Protected>} />
       <Route path="/profile" element={<Protected><ProfilePage /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
