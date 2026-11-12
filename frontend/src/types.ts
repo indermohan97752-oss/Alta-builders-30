@@ -38,6 +38,7 @@ export interface Message {
 export interface Me {
   id: string;
   username: string;
+  role: "user" | "admin";
   status: string;
   encrypted_profile: CipherBlob;
   crypto_public_key: JsonWebKey;
