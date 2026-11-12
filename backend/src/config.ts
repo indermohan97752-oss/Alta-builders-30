@@ -8,9 +8,9 @@ const schema = z.object({
     (value) => value.startsWith("mongodb://") || value.startsWith("mongodb+srv://"),
     "MONGODB_URI must use mongodb:// or mongodb+srv://",
   ),
-  // Generate with: openssl rand -base64 48. No default or weak fallback is allowed.
   JWT_SECRET: z.string().min(64, "JWT_SECRET must be at least 64 characters; generate it with openssl rand -base64 48"),
   CLIENT_ORIGIN: z.string().url().default("http://localhost:5173"),
+  ADMIN_BOOTSTRAP_TOKEN: z.string().min(40).max(200).optional(),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
 });
@@ -58,6 +58,7 @@ export const config = {
   mongoUri: env.MONGODB_URI,
   jwtSecret: env.JWT_SECRET,
   clientOrigin: env.CLIENT_ORIGIN,
+  adminBootstrapToken: env.ADMIN_BOOTSTRAP_TOKEN ?? null,
   bcryptRounds: env.BCRYPT_ROUNDS,
   trustProxy: env.TRUST_PROXY,
 };
