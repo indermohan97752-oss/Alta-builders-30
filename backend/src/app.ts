@@ -4,6 +4,7 @@ import express from "express";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { config } from "./config.js";
+import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 import { roomsRouter } from "./routes/rooms.js";
@@ -51,6 +52,7 @@ export function createApp() {
   app.use("/health", healthRouter);
   app.use("/api/health", healthRouter);
   app.use("/api/auth", authRouter);
+  app.use("/api/admin", adminRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/rooms", roomsRouter);
 
