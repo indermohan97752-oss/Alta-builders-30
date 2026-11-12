@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { config } from "../config.js";
 import { sessionVersionMatches } from "../models/user.js";
+import { UserModel } from "../models/schemas.js";
 
 export interface AuthedRequest extends Request {
   userId?: string;
@@ -70,5 +71,12 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     return res.status(401).json({ error: "Unauthorized" });
   }
   req.userId = session.userId;
+  next();
+}
+
+export async function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
+  if (!req.userId) return res.status(401).json({ error: "Unauthorized" });
+  const user = await UserModel.findById(req.userId).select("role").lean();
+  if (user?.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   next();
 }
