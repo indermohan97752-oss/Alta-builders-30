@@ -19,3 +19,16 @@ export const typingEventSchema = z.object({
   roomId: objectId,
   isTyping: z.boolean(),
 }).strict();
+
+// WebRTC signaling payloads are short-lived, authenticated metadata only.
+// SDP and ICE candidates are forwarded and never persisted.
+export const callSignalEventSchema = z.object({
+  roomId: objectId,
+  targetUserId: objectId,
+  callId: z.string().uuid(),
+  kind: z.enum(["offer", "answer", "ice", "hangup", "reject"]),
+  data: z.record(z.unknown()).optional().refine(
+    (value) => value === undefined || JSON.stringify(value).length <= 20_000,
+    "Call signaling payload is too large",
+  ),
+}).strict();
