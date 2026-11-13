@@ -7,7 +7,7 @@ import { markRead } from "./models/room.js";
 import { MessageModel, RoomModel } from "./models/schemas.js";
 import { sessionVersionMatches, setStatus } from "./models/user.js";
 import { emitRoomEventToMembers, setIo } from "./services/realtime.js";
-import { readMessageEventSchema, sendMessageEventSchema, typingEventSchema } from "./validation/socket.js";
+import { callSignalEventSchema, readMessageEventSchema, sendMessageEventSchema, typingEventSchema } from "./validation/socket.js";
 
 const rateLimitMessage = { error: "Too many realtime events. Slow down and try again." };
 
@@ -163,6 +163,36 @@ export function attachSocket(httpServer: HttpServer) {
           .map((memberId: string) => `user:${memberId}`);
         if (recipients.length) io.to(recipients).emit("typing", { roomId, userId, isTyping });
       })().catch(() => undefined);
+    });
+
+
+    // WebRTC signaling is relayed only between the two authenticated members of
+    // a direct room. Media itself is peer-to-peer and is never stored on the API.
+    socket.on("call:signal", (payload: unknown) => {
+      if (!allowUserEvent(userId, "call:signal", 90, 60_000)) {
+        socket.emit("app:error", rateLimitMessage);
+        return;
+      }
+      const parsed = callSignalEventSchema.safeParse(payload);
+      if (!parsed.success) return;
+      const { roomId, targetUserId, callId, kind, data } = parsed.data;
+
+      void (async () => {
+        try {
+          const room = await RoomModel.findOne({
+            _id: roomId,
+            type: "direct",
+            members: { $all: [{ $elemMatch: { user: userId } }, { $elemMatch: { user: targetUserId } }] },
+          }).select("_id").lean();
+          if (!room) return;
+          io.to(`user:${targetUserId}`).emit("call:signal", {
+            roomId, fromUserId: userId, callId, kind, data,
+          });
+        } catch (error) {
+          console.error("Call signaling failed:", error instanceof Error ? error.name : "unknown error");
+          socket.emit("app:error", { error: "Unable to connect the call" });
+        }
+      })();
     });
 
     socket.on("disconnect", () => {
