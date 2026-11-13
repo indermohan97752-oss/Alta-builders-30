@@ -5,6 +5,15 @@ import { createAccountBundle, unlockAccount } from "../crypto";
 
 type AuthResponse = { user: { id: string; username: string; crypto_salt: string; crypto_public_key: JsonWebKey; wrapped_private_key: { iv: string; ciphertext: string; iterations: number } } };
 
+function validateSignupPassword(password: string): string | null {
+  if (password.length < 12) return "Use at least 12 characters for your password.";
+  if (new TextEncoder().encode(password).length > 72) return "Password is too long. Use no more than 72 UTF-8 bytes.";
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return "Include at least one letter and one number in your password.";
+  }
+  return null;
+}
+
 export default function AuthPage() {
   const nav = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -17,6 +26,11 @@ export default function AuthPage() {
     e.preventDefault(); setError(""); setBusy(true);
     try {
       if (mode === "signup") {
+        const passwordError = validateSignupPassword(form.password);
+        if (passwordError) { setError(passwordError); return; }
+        if (!window.isSecureContext || !window.crypto?.subtle) {
+          throw new Error("Secure password setup is not available in this browser tab. Open the HTTPS site in a modern browser and try again.");
+        }
         const bundle = await createAccountBundle(form.password, {
           email: form.email.trim().toLowerCase(), displayName: form.displayName.trim() || form.username, bio: "", avatarUrl: "",
         });
@@ -40,16 +54,16 @@ export default function AuthPage() {
       <h1>ChatApp</h1><p className="muted">End-to-end encrypted chat</p>
       <form onSubmit={submit}>
         {mode === "signup" && <>
-          <input placeholder="Username (public handle)" value={form.username} onChange={set("username")} required minLength={3} maxLength={30} />
+          <input placeholder="Username (public handle)" value={form.username} onChange={set("username")} required minLength={3} maxLength={30} pattern="[A-Za-z0-9_]{3,30}" title="Use 3-30 letters, numbers or underscores." />
           <input type="text" placeholder="Display name (encrypted)" value={form.displayName} onChange={set("displayName")} />
           <input type="email" placeholder="Email (encrypted)" value={form.email} onChange={set("email")} required />
           <input type="password" placeholder="One-time admin setup key (admin only)" value={form.adminBootstrapToken} onChange={set("adminBootstrapToken")} autoComplete="off" />
-          <small className="muted">Leave blank for a normal account. Only the first valid setup key can create the site administrator.</small>
+          <small className="muted">Leave this blank for a normal account. This is a separate one-time key supplied privately by the site owner — it is not your account password.</small>
         </>}
         {mode === "login" && <input placeholder="Username" value={form.username} onChange={set("username")} required />}
         <input type="password" placeholder="Password" value={form.password} onChange={set("password")} required minLength={mode === "signup" ? 12 : undefined} autoComplete={mode === "login" ? "current-password" : "new-password"} />
-        {mode === "signup" && <small className="muted">Use at least 12 characters. Your password protects your private encryption key and cannot be recovered.</small>}
-        {error && <p className="error">{error}</p>}
+        {mode === "signup" && <small className="muted">Use at least 12 characters, including one letter and one number (maximum 72 UTF-8 bytes). Your password protects your private encryption key and cannot be recovered.</small>}
+        {error && <p className="error" role="alert">{error}</p>}
         <button type="submit" disabled={busy}>{busy ? "Securing account…" : mode === "login" ? "Log in" : "Create encrypted account"}</button>
       </form>
       <button className="link" onClick={() => { setError(""); setMode(mode === "login" ? "signup" : "login"); }}>
