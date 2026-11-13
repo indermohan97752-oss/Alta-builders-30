@@ -29,7 +29,12 @@ const authLimiter = rateLimit({
 export function createApp() {
   const app = express();
   app.disable("x-powered-by");
-  if (config.trustProxy > 0) app.set("trust proxy", config.trustProxy);
+
+  // Render places one trusted reverse proxy in front of the service. Trust that
+  // first hop in production so rate limiting sees each visitor's real client IP.
+  // Local development remains untrusted unless explicitly configured.
+  const trustProxy = config.env === "production" ? Math.max(config.trustProxy, 1) : config.trustProxy;
+  if (trustProxy > 0) app.set("trust proxy", trustProxy);
 
   // The API does not serve HTML, so CSP is configured at the frontend/reverse proxy.
   app.use(helmet({ contentSecurityPolicy: false, strictTransportSecurity: config.env === "production" ? undefined : false }));
