@@ -17,6 +17,9 @@ export interface Room {
 }
 
 export interface RoomDetails extends Room {
+  my_user_id: string;
+  my_role: "owner" | "admin" | "member";
+  is_muted: boolean;
   members: Array<{ user_id: string; username: string; status: string; role: string; joined_at: string }>;
 }
 
