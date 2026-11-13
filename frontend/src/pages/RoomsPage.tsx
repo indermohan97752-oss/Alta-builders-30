@@ -125,6 +125,13 @@ export default function RoomsPage() {
 
   return (
     <main className="screen inbox-screen">
+      <aside className="desktop-rail" aria-label="Main navigation">
+        <Link className="rail-brand" to="/" aria-label="Alta Chat home">A</Link>
+        <Link className="rail-link active" to="/" title="Chats" aria-label="Chats">▤</Link>
+        {isAdmin && <Link className="rail-link" to="/admin" title="Admin" aria-label="Admin">▦</Link>}
+        <Link className="rail-link rail-profile" to="/profile" title="My profile" aria-label="My profile">◉</Link>
+      </aside>
+      <section className="desktop-inbox-panel">
       <header className="inbox-topbar">
         <div><p className="eyebrow">ALTA CHAT</p><h1>Messages</h1></div>
         <div className="top-actions">
@@ -195,6 +202,21 @@ export default function RoomsPage() {
         {isAdmin && <Link to="/admin">▦<span>Admin</span></Link>}
         <Link to="/profile">◌<span>Profile</span></Link>
       </footer>
+      </section>
+      <section className="desktop-workspace" aria-label="Conversation workspace">
+        <div className="workspace-topline">
+          <div><p className="eyebrow">YOUR WORKSPACE</p><h2>Stay connected.</h2></div>
+          <span className="workspace-secure"><span className="secure-dot" /> End-to-end encrypted</span>
+        </div>
+        <div className="workspace-welcome">
+          <div className="welcome-orbit"><span>✦</span><i /><b /></div>
+          <p className="eyebrow">WELCOME TO ALTA CHAT</p>
+          <h2>Your conversations,<br />in one calm space.</h2>
+          <p>Choose a conversation from the list to continue, or find someone new and start a private chat.</p>
+          <button type="button" onClick={() => document.querySelector<HTMLInputElement>(".inbox-search input")?.focus()}>Find someone <span>↗</span></button>
+        </div>
+        <div className="workspace-foot"><span>PRIVATE BY DESIGN</span><span>BUILT FOR YOUR EVERYDAY</span></div>
+      </section>
 
       {groupOpen && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setGroupOpen(false); }}>
