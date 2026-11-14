@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Alta Chat",
+  "short_name": "Alta Chat",
+  "description": "Private conversations, beautifully connected.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#211d43",
+  "theme_color": "#29264b",
+  "icons": [
+    {
+      "src": "/alta-chat-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
