@@ -7,6 +7,7 @@ import {
 } from "../models/room.js";
 import { createEncryptedMessage, listMessages } from "../models/message.js";
 import { findPublicById } from "../models/user.js";
+import { RoomModel } from "../models/schemas.js";
 import {
   canAddMembers, canChangeRole, canDeleteRoom, canEditRoom, canRemoveMember,
 } from "../services/permissions.js";
@@ -196,7 +197,8 @@ roomsRouter.post("/:roomId/messages", loadMembership, async (req: RoomRequest, r
   if (!parsed.success) return sendValidationError(res, parsed.error);
   const { roomId, encryptedContent, encryptedIv, keyVersion, replyToId } = parsed.data;
   if (roomId !== req.params.roomId) return res.status(400).json({ error: "Room mismatch" });
-  if (req.membership!.current_key_version !== keyVersion) return res.status(409).json({ error: "The room encryption key changed. Reload the room before sending." });
+  const currentRoom = await RoomModel.findOne({ _id: roomId, "members.user": req.userId }).select("currentKeyVersion").lean();
+  if (!currentRoom || currentRoom.currentKeyVersion !== keyVersion) return res.status(409).json({ error: "The room encryption key changed. Reload the room before sending." });
   const message = await createEncryptedMessage({ room: roomId, sender: req.userId!, encryptedContent, encryptedIv, keyVersion, replyTo: replyToId ?? null });
   await emitRoomEventToMembers(roomId, "message:new", message);
   res.status(201).json(message);
