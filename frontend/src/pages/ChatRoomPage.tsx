@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
-import { cacheRoomKey, createInvitationToken, createRoomKey, decryptRoomMetadata, decryptRoomText, encryptInvitationLabel, encryptRoomMetadataWithKey, encryptRoomText, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
+import { cacheRoomKey, clearRoomKeyCache, createInvitationToken, createRoomKey, decryptRoomMetadata, decryptRoomText, encryptInvitationLabel, encryptRoomMetadataWithKey, encryptRoomText, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
 import type { Message, RoomDetails } from "../types";
 
 function getRoomDisplayName(details: RoomDetails, encryptedName: string): string {
@@ -182,6 +182,9 @@ export default function ChatRoomPage() {
       // A group owner/admin may have added someone and rotated the key while
       // this member's chat tab was open.
       const latestRoom = await api<RoomDetails>(`/rooms/${roomId}`);
+      // Re-import the latest version from this member's own persisted
+      // envelope so a stale key cached by an older app build cannot block sends.
+      clearRoomKeyCache(roomId, latestRoom.current_key_version);
       for (const envelope of latestRoom.key_envelopes) {
         await unwrapRoomKey(roomId, envelope.wrapped_key, envelope.key_version);
       }
