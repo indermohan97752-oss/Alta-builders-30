@@ -109,6 +109,17 @@ roomsRouter.post("/:roomId/members", loadMembership, requireGroup, async (req: R
     if (error instanceof Error && error.message.includes("Key rotation")) return res.status(400).json({ error: error.message });
     throw error;
   }
+  if (!added.length) {
+    // A concurrent membership/key update can make the atomic write miss its
+    // revision check. Do not report that as a successful add if users are
+    // still absent from the group.
+    const latestRoom = await RoomModel.findById(req.params.roomId).select("members").lean() as any;
+    const latestMemberIds = new Set((latestRoom?.members ?? []).map((member: any) => String(member.user)));
+    const stillMissing = parsed.data.userIds.filter((userId) => !latestMemberIds.has(userId));
+    if (stillMissing.length) {
+      return res.status(409).json({ error: "Group membership changed while adding people. Refresh the group and try again." });
+    }
+  }
   if (added.length) {
     memberJoined(req.params.roomId, added);
     await postSystemMessage(req.params.roomId, req.userId!, `${await actorName(req.userId!)} updated room membership and encryption keys`);
