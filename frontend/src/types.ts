@@ -4,6 +4,7 @@ export interface KeyEnvelope { key_version: number; wrapped_key: string }
 export interface Room {
   id: string;
   type: "direct" | "group";
+  direct_peer_name?: string | null;
   encrypted_metadata: CipherBlob;
   key_envelopes: KeyEnvelope[];
   current_key_version: number;
