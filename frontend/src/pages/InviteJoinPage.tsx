@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import { cacheRoomKey, createRoomKey, encryptRoomMetadataWithKey, getCurrentUserId, wrapRoomKeyForUser } from "../crypto";
+import { cacheRoomKey, createRoomKey, decryptInvitationLabel, encryptRoomMetadataWithKey, getCurrentUserId, wrapRoomKeyForUser } from "../crypto";
 
 type InviteInfo = {
   roomId: string;
@@ -24,8 +24,9 @@ export default function InviteJoinPage() {
 
   useEffect(() => {
     void api<InviteInfo>(`/invitations/${encodeURIComponent(token)}`)
-      .then((data) => {
-        setInvite(data);
+      .then(async (data) => {
+        const displayName = await decryptInvitationLabel(token, data.displayName);
+        setInvite({ ...data, displayName });
         if (data.alreadyMember) setStatus("You are already a member of this group.");
         else if (data.requested) setStatus("Your request is waiting for an owner or admin to approve it.");
       })
