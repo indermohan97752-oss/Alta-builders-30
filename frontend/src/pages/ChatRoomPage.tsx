@@ -68,8 +68,33 @@ export default function ChatRoomPage() {
   useEffect(() => {
     let active = true;
     let poll = 0;
-    const refreshMessages = async () => {
+    let refreshInFlight = false;
+    const refreshRoomAndMessages = async () => {
+      if (refreshInFlight) return;
+      refreshInFlight = true;
       try {
+        // Membership changes rotate the group's key. Refresh this member's
+        // key envelope before decrypting messages encrypted with the new key.
+        const details = await api<RoomDetails>(`/rooms/${roomId}`);
+        for (const envelope of details.key_envelopes) {
+          await unwrapRoomKey(roomId, envelope.wrapped_key, envelope.key_version);
+        }
+        const currentEnvelope = details.key_envelopes.find(
+          (item) => item.key_version === details.current_key_version,
+        );
+        if (!currentEnvelope) {
+          throw new Error("Your device does not have the current room encryption key. Reload the room.");
+        }
+        const metadata = await decryptRoomMetadata(
+          roomId,
+          details.encrypted_metadata,
+          details.current_key_version,
+        );
+        if (!active) return;
+        setRoom(details);
+        setRoomName(metadata.name);
+        setKeyVersion(details.current_key_version);
+
         const latest = await api<Message[]>(`/rooms/${roomId}/messages?limit=30`);
         const readable = await Promise.all(latest.map((message) => decryptMessage(roomId, message)));
         if (!active) return;
@@ -78,17 +103,19 @@ export default function ChatRoomPage() {
           for (const message of readable) byId.set(message.id, message);
           return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
         });
+        setError("");
       } catch {
-        // Keep the last successfully loaded messages during brief network drops.
+        // Keep the last successfully loaded room during brief network drops.
+      } finally {
+        refreshInFlight = false;
       }
     };
     void (async () => {
       await loadRoom();
       if (!active) return;
-      // Start polling only after room/key setup has completed, avoiding a
-      // first-load race that could make one device briefly show stale content.
+      // Refresh membership and encryption envelopes along with the messages.
       poll = window.setInterval(() => {
-        if (document.visibilityState === "visible") void refreshMessages();
+        if (document.visibilityState === "visible") void refreshRoomAndMessages();
       }, 2500);
     })();
     return () => {
@@ -153,7 +180,7 @@ export default function ChatRoomPage() {
     try {
       // Rotate to a fresh room key. It is wrapped to every current and new
       // member, so new members cannot decrypt messages sent before they joined.
-      const resultingIds = [...room.members.map((member) => member.user_id), ...selectedIds];
+      const resultingIds = [...new Set([...room.members.map((member) => member.user_id), ...selectedIds])];
       const publicKeys = await Promise.all(resultingIds.map(async (userId) => ({
         userId,
         publicKey: (await api<PublicKeyResponse>(`/users/${userId}/crypto-key`)).public_key,
@@ -166,10 +193,13 @@ export default function ChatRoomPage() {
       })));
       raw.fill(0);
       const nextVersion = room.current_key_version + 1;
-      await api(`/rooms/${roomId}/members`, {
+      const result = await api<{ addedIds: string[] }>(`/rooms/${roomId}/members`, {
         method: "POST",
         body: JSON.stringify({ userIds: selectedIds, encryptedMetadata, keyEnvelopes }),
       });
+      if (!result.addedIds?.length) {
+        throw new Error("No new members were added. They may already be in this group; refresh the group and try again.");
+      }
       cacheRoomKey(roomId, nextVersion, key);
       setKeyVersion(nextVersion);
       setAddOpen(false);
