@@ -219,8 +219,14 @@ export function cacheRoomKey(roomId: string, version: number, key: CryptoKey) {
 }
 
 /** Discard any local room key cache and re-unlock from this account's server envelope. */
-export function clearRoomKeyCache(roomId: string) {
-  roomKeys.delete(roomId);
+export function clearRoomKeyCache(roomId: string, version?: number) {
+  if (version === undefined) {
+    roomKeys.delete(roomId);
+    return;
+  }
+  const versions = roomKeys.get(roomId);
+  versions?.delete(version);
+  if (versions?.size === 0) roomKeys.delete(roomId);
 }
 
 export async function encryptRoomText(roomId: string, text: string, version = 1): Promise<CipherBlob> {
