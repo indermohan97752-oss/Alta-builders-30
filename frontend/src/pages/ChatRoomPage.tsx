@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { cacheRoomKey, createInvitationToken, createRoomKey, decryptRoomMetadata, decryptRoomText, encryptInvitationLabel, encryptRoomMetadataWithKey, encryptRoomText, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
-import { getSocket } from "../socket";
 import type { Message, RoomDetails } from "../types";
 
 async function decryptMessage(roomId: string, message: Message): Promise<Message> {
@@ -28,7 +27,6 @@ export default function ChatRoomPage() {
   const { roomId = "" } = useParams();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
-  const [typing, setTyping] = useState(false);
   const [roomName, setRoomName] = useState("Encrypted room");
   const [keyVersion, setKeyVersion] = useState(1);
   const [room, setRoom] = useState<RoomDetails | null>(null);
@@ -47,7 +45,6 @@ export default function ChatRoomPage() {
   const [pendingRequests, setPendingRequests] = useState<Array<{ user_id: string; username: string; status: string }>>([]);
   const [inviteBusy, setInviteBusy] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
-  const socket = getSocket();
 
   async function loadRoom() {
     try {
@@ -70,32 +67,24 @@ export default function ChatRoomPage() {
 
   useEffect(() => {
     void loadRoom();
-    const onNew = (message: Message) => {
-      if (message.room_id !== roomId) return;
-      void decryptMessage(roomId, message).then((readable) => {
-        setMessages((prev) => [...prev.filter((m) => m.id !== readable.id), readable]);
-        socket.emit("room:read", { roomId, messageId: readable.id });
-      }).catch(() => setError("Could not decrypt incoming message. Reload the room to refresh its keys."));
-    };
-    const onTyping = (event: { roomId: string; isTyping: boolean }) => event.roomId === roomId && setTyping(event.isTyping);
-    const onRoomUpdated = (event: { roomId: string }) => { if (event.roomId === roomId) void loadRoom(); };
-    const onAppError = (event: { error?: string }) => setError(event.error ?? "Realtime action failed");
-    socket.on("message:new", onNew);
-    socket.on("typing", onTyping);
-    socket.on("room:updated", onRoomUpdated);
-    socket.on("app:error", onAppError);
-    return () => {
-      socket.off("message:new", onNew);
-      socket.off("typing", onTyping);
-      socket.off("room:updated", onRoomUpdated);
-      socket.off("app:error", onAppError);
-    };
+    const poll = window.setInterval(() => {
+      void api<Message[]>(`/rooms/${roomId}/messages?limit=30`)
+        .then(async (latest) => {
+          const readable = await Promise.all(latest.map((message) => decryptMessage(roomId, message)));
+          setMessages((previous) => {
+            const byId = new Map(previous.map((message) => [message.id, message]));
+            for (const message of readable) byId.set(message.id, message);
+            return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+          });
+        })
+        .catch(() => undefined);
+    }, 2500);
+    return () => window.clearInterval(poll);
   }, [roomId]);
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
     const last = messages[messages.length - 1];
-    if (last) socket.emit("room:read", { roomId, messageId: last.id });
   }, [messages.length]);
 
   useEffect(() => {
@@ -132,13 +121,12 @@ export default function ChatRoomPage() {
     if (!clear) return;
     try {
       const encrypted = await encryptRoomText(roomId, clear, keyVersion);
-      socket.emit("message:send", {
-        roomId,
-        encryptedContent: encrypted.ciphertext,
-        encryptedIv: encrypted.iv,
-        keyVersion,
+      const saved = await api<Message>(`/rooms/${roomId}/messages`, {
+        method: "POST",
+        body: JSON.stringify({ roomId, encryptedContent: encrypted.ciphertext, encryptedIv: encrypted.iv, keyVersion }),
       });
-      socket.emit("typing", { roomId, isTyping: false });
+      const readable = await decryptMessage(roomId, saved);
+      setMessages((previous) => [...previous.filter((message) => message.id !== readable.id), readable]);
       setText("");
     } catch (err) { setError((err as Error).message); }
   }
@@ -243,7 +231,6 @@ export default function ChatRoomPage() {
         <Link to="/">←</Link>
         <div className="chat-room-heading">
           <strong>{roomName}</strong>
-          {typing && <span className="muted"> · typing…</span>}
           <small className="muted"> · end-to-end encrypted</small>
         </div>
         {room?.type === "group" && <button type="button" className="group-info-trigger" onClick={() => setInfoOpen(true)}>Group info</button>}
@@ -255,7 +242,7 @@ export default function ChatRoomPage() {
         <div ref={bottom} />
       </section>
       <form className="composer" onSubmit={send}>
-        <input value={text} placeholder="Encrypted message" maxLength={8000} onChange={(e) => { setText(e.target.value); socket.emit("typing", { roomId, isTyping: true }); }} />
+        <input value={text} placeholder="Encrypted message" maxLength={8000} onChange={(e) => setText(e.target.value)} />
         <button type="submit">Send</button>
       </form>
 
