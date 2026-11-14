@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import AltaSplashScreen from "./components/AltaSplashScreen";
 import { isAuthenticated } from "./api";
 import { isCryptoUnlocked } from "./crypto";
 import AdminPage from "./pages/AdminPage";
@@ -14,6 +16,15 @@ function Protected({ children }: { children: JSX.Element }) {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => setShowSplash(false), 1350);
+    return () => window.clearTimeout(splashTimer);
+  }, []);
+
+  if (showSplash) return <AltaSplashScreen />;
+
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
