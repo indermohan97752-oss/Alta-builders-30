@@ -249,10 +249,9 @@ export function base64UrlSafePublicKey(jwk: JsonWebKey) {
   return jwk;
 }
 
-/** Invitation display labels are encrypted with a key derived from the high-entropy invite token.
- * The server stores only this ciphertext; only someone holding the invitation URL can read it. */
+/** Invitation display labels are encrypted with a key derived from the high-entropy invite token. */
 export function createInvitationToken(): string {
-  return toBase64(randomBytes(32)).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+  return toBase64(randomBytes(32)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 export async function encryptInvitationLabel(token: string, label: string): Promise<string> {
@@ -265,7 +264,7 @@ export async function encryptInvitationLabel(token: string, label: string): Prom
     toArrayBuffer(encoder.encode(label)),
   );
   return btoa(JSON.stringify({ iv: toBase64(iv), ciphertext: toBase64(ciphertext) }))
-    .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 
 export async function decryptInvitationLabel(token: string, encrypted: string): Promise<string> {
