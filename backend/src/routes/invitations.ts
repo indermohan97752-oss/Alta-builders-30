@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { Router } from "express";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import { GroupInvitationModel, RoomModel, UserModel } from "../models/schemas.js";
@@ -54,11 +54,11 @@ async function applyInviteJoin(invite: any, userId: string, rotation: z.infer<ty
 invitationsRouter.post("/rooms/:roomId/invitations", async (req: AuthedRequest, res) => {
   const { roomId } = req.params;
   if (!objectId.safeParse(roomId).success) return res.status(404).json({ error: "Group not found" });
-  const body = z.object({ mode: z.enum(["approval", "instant"]), displayName: z.string().trim().min(1).max(60) }).strict().safeParse(req.body);
+  const body = z.object({ mode: z.enum(["approval", "instant"]), token: tokenSchema, displayName: z.string().min(32).max(2048) }).strict().safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: "Invalid invitation settings" });
   const room = await RoomModel.findOne({ _id: roomId, type: "group", members: { $elemMatch: { user: req.userId, role: { $in: ["owner", "admin"] } } } }).select("_id").lean();
   if (!room) return res.status(403).json({ error: "Only group owners and admins can create invitations" });
-  const token = randomBytes(32).toString("base64url");
+  const token = body.data.token;
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const created = await GroupInvitationModel.create({ tokenHash: tokenHash(token), room: roomId, createdBy: req.userId, mode: body.data.mode, displayName: body.data.displayName, expiresAt });
   res.status(201).json({ token, invitationId: String(created._id), mode: body.data.mode, expiresAt });
