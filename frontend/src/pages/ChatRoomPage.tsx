@@ -91,7 +91,16 @@ export default function ChatRoomPage() {
           details.current_key_version,
         );
         if (!active) return;
-        setRoom(details);
+        setRoom((previous) => {
+          // Avoid restarting the add-member username search every poll when
+          // the member list and encryption version have not actually changed.
+          const unchanged = previous
+            && previous.current_key_version === details.current_key_version
+            && previous.my_role === details.my_role
+            && JSON.stringify(previous.members) === JSON.stringify(details.members)
+            && JSON.stringify(previous.key_envelopes) === JSON.stringify(details.key_envelopes);
+          return unchanged ? previous : details;
+        });
         setRoomName(metadata.name);
         setKeyVersion(details.current_key_version);
 
