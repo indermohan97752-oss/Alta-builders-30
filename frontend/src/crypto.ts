@@ -218,6 +218,11 @@ export function cacheRoomKey(roomId: string, version: number, key: CryptoKey) {
   roomKeys.set(roomId, versions);
 }
 
+/** Discard any local room key cache and re-unlock from this account's server envelope. */
+export function clearRoomKeyCache(roomId: string) {
+  roomKeys.delete(roomId);
+}
+
 export async function encryptRoomText(roomId: string, text: string, version = 1): Promise<CipherBlob> {
   const key = roomKeys.get(roomId)?.get(version);
   if (!key) throw new Error("This room has no unlocked encryption key.");
