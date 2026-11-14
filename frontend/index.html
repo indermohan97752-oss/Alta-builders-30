@@ -4,11 +4,33 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#29264b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Alta Chat" />
+    <link rel="icon" type="image/svg+xml" href="/alta-chat-icon.svg" />
+    <link rel="apple-touch-icon" href="/alta-chat-icon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #211d43; }
+      .boot-screen { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; color: white; text-align: center; font-family: Inter, system-ui, sans-serif; background: radial-gradient(ellipse at 18% 18%,rgba(136,119,255,.34),transparent 38%),radial-gradient(ellipse at 84% 78%,rgba(49,196,198,.18),transparent 34%),linear-gradient(145deg,#211d43 0%,#30275d 52%,#1b2947 100%); }
+      .boot-screen img { width: 104px; height: 104px; filter: drop-shadow(0 18px 30px rgba(8,8,35,.3)); animation: boot-float 2.8s ease-in-out infinite; }
+      .boot-screen h1 { margin: 20px 0 8px; font-size: 42px; letter-spacing: -.06em; }
+      .boot-screen p { margin: 0; color: rgba(235,237,255,.72); font-size: 14px; }
+      @keyframes boot-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+      @media (prefers-reduced-motion: reduce) { .boot-screen img { animation: none; } }
+    </style>
     <meta name="description" content="Alta Chat — private conversations, beautifully connected." />
     <title>Alta Chat — Private Messaging</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="boot-screen" role="status" aria-label="Loading Alta Chat">
+        <div>
+          <img src="/alta-chat-icon.svg" alt="" />
+          <h1>Alta Chat</h1>
+          <p>Private conversations. Beautifully connected.</p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
