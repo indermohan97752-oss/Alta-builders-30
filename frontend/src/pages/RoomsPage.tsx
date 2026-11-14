@@ -27,9 +27,11 @@ export default function RoomsPage() {
       const unlocked = await Promise.all(records.map(async (room) => {
         try {
           for (const envelope of room.key_envelopes) await unwrapRoomKey(room.id, envelope.wrapped_key, envelope.key_version);
+          if (room.type === "direct" && room.direct_peer_name) {
+            return { ...room, name: room.direct_peer_name };
+          }
           const meta = await decryptRoomMetadata(room.id, room.encrypted_metadata, room.current_key_version);
-          const displayName = room.type === "direct" ? room.direct_peer_name ?? meta.name : meta.name;
-          return { ...room, name: displayName };
+          return { ...room, name: meta.name };
         } catch {
           return { ...room, name: "Locked encrypted room" };
         }
