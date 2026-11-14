@@ -117,7 +117,7 @@ const groupInvitationSchema = new Schema(
     createdBy: { type: ObjectId, ref: "User", required: true },
     mode: { type: String, enum: ["approval", "instant"], required: true },
     displayName: { type: String, required: true, minlength: 1, maxlength: 60 },
-    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+    expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
     revokedAt: { type: Date, default: null },
     requests: {
       type: [{
