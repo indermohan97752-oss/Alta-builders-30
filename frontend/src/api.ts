@@ -12,7 +12,6 @@ export const clearSession = () => {
 };
 
 export async function api<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  if (!API_ORIGIN) throw new Error("The API URL is not configured. Set VITE_API_URL in the frontend deployment settings.");
   const res = await fetch(`${API_ORIGIN}/api${path}`, {
     ...options,
     credentials: "include",
