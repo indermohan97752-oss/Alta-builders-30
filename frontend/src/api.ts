@@ -1,9 +1,9 @@
 import { lockAccount } from "./crypto";
 const AUTH_FLAG = "chat_authenticated";
-// Route HTTP API requests through the Vercel origin. This keeps the HttpOnly\n// session cookie first-party in browsers that block third-party cookies.\nconst API_ORIGIN = "";
+// Route HTTP API requests through the Vercel origin. This keeps the HttpOnly
+// session cookie first-party in browsers that block third-party cookies.
+const API_ORIGIN = "";
 
-// The real session credential is an HttpOnly cookie. sessionStorage is only a
-// navigation hint; the E2EE private key is kept in JS memory, never persisted.
 export const isAuthenticated = () => sessionStorage.getItem(AUTH_FLAG) === "1";
 export const markAuthenticated = () => sessionStorage.setItem(AUTH_FLAG, "1");
 export const clearSession = () => {
