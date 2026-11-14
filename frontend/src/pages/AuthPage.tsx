@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api, clearSession, markAuthenticated } from "../api";
 import { createAccountBundle, unlockAccount } from "../crypto";
 
@@ -16,6 +16,7 @@ function validateSignupPassword(password: string): string | null {
 
 export default function AuthPage() {
   const nav = useNavigate();
+  const location = useLocation();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [form, setForm] = useState({ username: "", email: "", password: "", displayName: "", adminBootstrapToken: "" });
   const [error, setError] = useState("");
@@ -43,7 +44,7 @@ export default function AuthPage() {
         const response = await api<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ username: form.username, password: form.password }) });
         await unlockAccount(response.user.id, form.password, { cryptoSalt: response.user.crypto_salt, cryptoPublicKey: response.user.crypto_public_key, wrappedPrivateKey: response.user.wrapped_private_key });
       }
-      markAuthenticated(); setForm((prev) => ({ ...prev, password: "", adminBootstrapToken: "" })); nav("/");
+      markAuthenticated(); setForm((prev) => ({ ...prev, password: "", adminBootstrapToken: "" })); const destination = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from; nav(destination?.pathname ? destination.pathname + (destination.search ?? "") + (destination.hash ?? "") : "/");
     } catch (err) {
       clearSession(); setError((err as Error).message || "Unable to unlock encrypted account data");
     } finally { setBusy(false); }
