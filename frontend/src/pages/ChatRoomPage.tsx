@@ -40,6 +40,11 @@ export default function ChatRoomPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [savingMembers, setSavingMembers] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteMode, setInviteMode] = useState<"approval" | "instant">("approval");
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [pendingRequests, setPendingRequests] = useState<Array<{ user_id: string; username: string; status: string }>>([]);
+  const [inviteBusy, setInviteBusy] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const socket = getSocket();
 
@@ -174,6 +179,52 @@ export default function ChatRoomPage() {
 
   const canManageMembers = room?.type === "group" && (room.my_role === "owner" || room.my_role === "admin");
 
+  async function createInvitation() {
+    if (!room || !canManageMembers || inviteBusy) return;
+    setInviteBusy(true); setError("");
+    try {
+      const result = await api<{ token: string }>("/rooms/" + roomId + "/invitations", {
+        method: "POST", body: JSON.stringify({ mode: inviteMode, displayName: roomName }),
+      });
+      setInviteUrl(window.location.origin + "/invite/" + result.token);
+    } catch (err) { setError((err as Error).message); }
+    finally { setInviteBusy(false); }
+  }
+
+  async function loadJoinRequests() {
+    if (!canManageMembers) return;
+    try { setPendingRequests(await api("/invitations/rooms/" + roomId + "/requests")); }
+    catch (err) { setError((err as Error).message); }
+  }
+
+  async function approveJoinRequest(userId: string) {
+    if (!room || !canManageMembers || inviteBusy) return;
+    setInviteBusy(true); setError("");
+    try {
+      const recipientIds = [...new Set([...room.members.map((member) => member.user_id), userId])];
+      const publicKeys = await Promise.all(recipientIds.map(async (id) => ({
+        userId: id, publicKey: (await api<PublicKeyResponse>("/users/" + id + "/crypto-key")).public_key,
+      })));
+      const { raw, key } = await createRoomKey();
+      try {
+        const encryptedMetadata = await encryptRoomMetadataWithKey(key, { name: roomName });
+        const keyEnvelopes = await Promise.all(publicKeys.map(async (entry) => ({ userId: entry.userId, wrappedKey: await wrapRoomKeyForUser(raw, entry.publicKey) })));
+        const nextVersion = room.current_key_version + 1;
+        await api("/invitations/rooms/" + roomId + "/requests/" + userId + "/approve", {
+          method: "POST", body: JSON.stringify({ encryptedMetadata, keyEnvelopes }),
+        });
+        cacheRoomKey(roomId, nextVersion, key);
+        setKeyVersion(nextVersion);
+        await loadRoom();
+        await loadJoinRequests();
+      } finally { raw.fill(0); }
+    } catch (err) { setError((err as Error).message); }
+    finally { setInviteBusy(false); }
+  }
+
+  useEffect(() => { if (infoOpen && canManageMembers) void loadJoinRequests(); }, [infoOpen, canManageMembers, roomId]);
+
+
   return (
     <main className="screen chat">
       <header className="bar chat-room-bar">
@@ -203,7 +254,9 @@ export default function ChatRoomPage() {
               <div><p className="eyebrow">GROUP DETAILS</p><h2 id="group-info-title">{roomName}</h2><p className="muted">{room.members.length} members · encrypted group</p></div>
               <button type="button" className="close-button" aria-label="Close group info" onClick={() => setInfoOpen(false)}>×</button>
             </div>
-            {canManageMembers && <button type="button" className="full-button" onClick={() => { setInfoOpen(false); setAddOpen(true); }}>＋ Add members</button>}
+            {canManageMembers && <div className="group-admin-actions"><button type="button" className="full-button" onClick={() => { setInfoOpen(false); setAddOpen(true); }}>＋ Add members</button><button type="button" className="full-button" onClick={() => { setInviteOpen(true); setInviteUrl(""); }}>Invite with link</button></div>}
+
+            {canManageMembers && pendingRequests.length > 0 && <section className="group-join-requests"><h3 className="group-members-title">Join requests ({pendingRequests.length})</h3>{pendingRequests.map((request) => <div className="group-member-row" key={request.user_id}><span className="avatar">{request.username.slice(0, 2).toUpperCase()}</span><span className="group-member-copy"><strong>{request.username}</strong><small>{request.status}</small></span><button type="button" className="text-action" disabled={inviteBusy} onClick={() => void approveJoinRequest(request.user_id)}>Approve</button></div>)}</section>}
             <h3 className="group-members-title">Members</h3>
             <div className="group-members-list">
               {room.members.map((member) => (
@@ -215,6 +268,23 @@ export default function ChatRoomPage() {
               ))}
             </div>
             <p className="security-note">New members receive the current encryption key only. They cannot read messages sent before they joined.</p>
+          </section>
+        </div>
+      )}
+
+
+      {inviteOpen && (
+        <div className="group-info-overlay" role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget && !inviteBusy) setInviteOpen(false); }}>
+          <section className="group-info-card" role="dialog" aria-modal="true" aria-labelledby="invite-group-title">
+            <div className="group-info-heading"><div><p className="eyebrow">GROUP INVITATION</p><h2 id="invite-group-title">Invite people to {roomName}</h2><p className="muted">Links expire after 7 days.</p></div><button type="button" className="close-button" onClick={() => setInviteOpen(false)}>×</button></div>
+            <label className="field-label">Who can join?</label>
+            <select className="modal-input" value={inviteMode} onChange={(e) => { setInviteMode(e.target.value as "approval" | "instant"); setInviteUrl(""); }}>
+              <option value="approval">Approval required — owner/admin approves</option>
+              <option value="instant">Instant joining — valid link holders can join</option>
+            </select>
+            <button type="button" className="full-button" disabled={inviteBusy} onClick={() => void createInvitation()}>{inviteBusy ? "Creating secure link…" : "Generate invitation link"}</button>
+            {inviteUrl && <div className="invite-link-box"><input className="modal-input" readOnly value={inviteUrl} aria-label="Invitation link" /><button type="button" className="full-button" onClick={() => void navigator.clipboard.writeText(inviteUrl)}>Copy invitation link</button></div>}
+            <p className="security-note">The link contains no encryption key. A fresh group key is generated and wrapped for every current member and the joining member. New members cannot decrypt earlier messages.</p>
           </section>
         </div>
       )}
