@@ -60,8 +60,8 @@ invitationsRouter.post("/rooms/:roomId/invitations", async (req: AuthedRequest, 
   if (!room) return res.status(403).json({ error: "Only group owners and admins can create invitations" });
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  await GroupInvitationModel.create({ tokenHash: tokenHash(token), room: roomId, createdBy: req.userId, mode: body.data.mode, displayName: body.data.displayName, expiresAt });
-  res.status(201).json({ token, mode: body.data.mode, expiresAt });
+  const created = await GroupInvitationModel.create({ tokenHash: tokenHash(token), room: roomId, createdBy: req.userId, mode: body.data.mode, displayName: body.data.displayName, expiresAt });
+  res.status(201).json({ token, invitationId: String(created._id), mode: body.data.mode, expiresAt });
 });
 
 invitationsRouter.get("/:token", async (req: AuthedRequest, res) => {
