@@ -5,16 +5,17 @@ import {
   addMembers, createGroup, deleteRoom, getMembership, getOrCreateDm, getRoomDetails,
   leaveGroup, listRoomsForUser, removeMember, setMuted, setRole, updateRoom,
 } from "../models/room.js";
-import { listMessages } from "../models/message.js";
+import { createEncryptedMessage, listMessages } from "../models/message.js";
 import { findPublicById } from "../models/user.js";
 import {
   canAddMembers, canChangeRole, canDeleteRoom, canEditRoom, canRemoveMember,
 } from "../services/permissions.js";
-import { memberJoined, memberLeft, postSystemMessage, roomChanged, roomDeleted } from "../services/realtime.js";
+import { emitRoomEventToMembers, memberJoined, memberLeft, postSystemMessage, roomChanged, roomDeleted } from "../services/realtime.js";
 import { sendValidationError } from "../validation/respond.js";
 import {
   addMembersSchema, createRoomSchema, dmSchema, mutedSchema, objectId, roleSchema, rotationSchema, updateRoomSchema,
 } from "../validation/rooms.js";
+import { sendMessageEventSchema } from "../validation/socket.js";
 
 export const roomsRouter = Router();
 roomsRouter.use(requireAuth);
@@ -186,7 +187,20 @@ roomsRouter.patch("/:roomId/me", loadMembership, async (req: RoomRequest, res) =
   res.json({ isMuted: parsed.data.isMuted });
 });
 
-// ---- messages (cursor pagination by message id) --------------------------
+// ---- messages (HTTP send + cursor pagination) ------------------------------
+// Sending over authenticated same-origin HTTP avoids relying on a cross-site
+// WebSocket cookie, which some browsers block. Membership and key version are
+// checked server-side exactly as for realtime sends.
+roomsRouter.post("/:roomId/messages", loadMembership, async (req: RoomRequest, res) => {
+  const parsed = sendMessageEventSchema.safeParse(req.body);
+  if (!parsed.success) return sendValidationError(res, parsed.error);
+  const { roomId, encryptedContent, encryptedIv, keyVersion, replyToId } = parsed.data;
+  if (roomId !== req.params.roomId) return res.status(400).json({ error: "Room mismatch" });
+  if (req.membership!.current_key_version !== keyVersion) return res.status(409).json({ error: "The room encryption key changed. Reload the room before sending." });
+  const message = await createEncryptedMessage({ room: roomId, sender: req.userId!, encryptedContent, encryptedIv, keyVersion, replyTo: replyToId ?? null });
+  await emitRoomEventToMembers(roomId, "message:new", message);
+  res.status(201).json(message);
+});
 
 roomsRouter.get("/:roomId/messages", loadMembership, async (req: RoomRequest, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit ?? 30) || 30, 1), 100);
