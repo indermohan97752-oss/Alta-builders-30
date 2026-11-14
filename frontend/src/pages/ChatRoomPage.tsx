@@ -66,20 +66,35 @@ export default function ChatRoomPage() {
   }
 
   useEffect(() => {
-    void loadRoom();
-    const poll = window.setInterval(() => {
-      void api<Message[]>(`/rooms/${roomId}/messages?limit=30`)
-        .then(async (latest) => {
-          const readable = await Promise.all(latest.map((message) => decryptMessage(roomId, message)));
-          setMessages((previous) => {
-            const byId = new Map(previous.map((message) => [message.id, message]));
-            for (const message of readable) byId.set(message.id, message);
-            return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
-          });
-        })
-        .catch(() => undefined);
-    }, 2500);
-    return () => window.clearInterval(poll);
+    let active = true;
+    let poll = 0;
+    const refreshMessages = async () => {
+      try {
+        const latest = await api<Message[]>(`/rooms/${roomId}/messages?limit=30`);
+        const readable = await Promise.all(latest.map((message) => decryptMessage(roomId, message)));
+        if (!active) return;
+        setMessages((previous) => {
+          const byId = new Map(previous.map((message) => [message.id, message]));
+          for (const message of readable) byId.set(message.id, message);
+          return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+        });
+      } catch {
+        // Keep the last successfully loaded messages during brief network drops.
+      }
+    };
+    void (async () => {
+      await loadRoom();
+      if (!active) return;
+      // Start polling only after room/key setup has completed, avoiding a
+      // first-load race that could make one device briefly show stale content.
+      poll = window.setInterval(() => {
+        if (document.visibilityState === "visible") void refreshMessages();
+      }, 2500);
+    })();
+    return () => {
+      active = false;
+      if (poll) window.clearInterval(poll);
+    };
   }, [roomId]);
 
   useEffect(() => {
