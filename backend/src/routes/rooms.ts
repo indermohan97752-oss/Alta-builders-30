@@ -58,7 +58,7 @@ roomsRouter.post("/dm", async (req: AuthedRequest, res) => {
   try {
     const { room, created } = await getOrCreateDm(req.userId!, otherId, parsed.data);
     if (created) memberJoined(room.id, [req.userId!, otherId]);
-    res.status(created ? 201 : 200).json(room);
+    res.status(created ? 201 : 200).json({ ...room, created });
   } catch (error) {
     if (error instanceof Error && error.message.includes("encrypted room key")) return res.status(400).json({ error: error.message });
     throw error;
