@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
-import { cacheRoomKey, createRoomKey, decryptRoomMetadata, decryptRoomText, encryptRoomMetadataWithKey, encryptRoomText, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
+import { cacheRoomKey, createInvitationToken, createRoomKey, decryptRoomMetadata, decryptRoomText, encryptInvitationLabel, encryptRoomMetadataWithKey, encryptRoomText, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
 import { getSocket } from "../socket";
 import type { Message, RoomDetails } from "../types";
 
@@ -184,8 +184,10 @@ export default function ChatRoomPage() {
     if (!room || !canManageMembers || inviteBusy) return;
     setInviteBusy(true); setError("");
     try {
+      const token = createInvitationToken();
+      const encryptedLabel = await encryptInvitationLabel(token, roomName);
       const result = await api<{ token: string; invitationId: string }>("/invitations/rooms/" + roomId + "/invitations", {
-        method: "POST", body: JSON.stringify({ mode: inviteMode, displayName: roomName }),
+        method: "POST", body: JSON.stringify({ mode: inviteMode, token, displayName: encryptedLabel }),
       });
       setInviteUrl(window.location.origin + "/invite/" + result.token);
       setInviteId(result.invitationId);
