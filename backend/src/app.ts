@@ -7,6 +7,7 @@ import { config } from "./config.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
+import { invitationsRouter } from "./routes/invitations.js";
 import { roomsRouter } from "./routes/rooms.js";
 import { usersRouter } from "./routes/users.js";
 
@@ -60,6 +61,7 @@ export function createApp() {
   app.use("/api/admin", adminRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/rooms", roomsRouter);
+  app.use("/api/invitations", invitationsRouter);
 
   app.use((err: Error & { status?: number; type?: string }, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     if (err.status && err.status >= 400 && err.status < 500) {
