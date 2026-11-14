@@ -43,8 +43,21 @@ export async function getMembership(roomId: string, userId: string): Promise<Mem
 /** Room list returns encrypted metadata and only this member's room-key envelope. */
 export async function listRoomsForUser(userId: string) {
   const rooms = (await RoomModel.find({ "members.user": userId }).lean()) as unknown as RoomDoc[];
+  // A direct chat's encrypted metadata was created from one participant's
+  // perspective. Resolve the other participant's public username separately
+  // so each person sees the correct peer name without changing E2EE data.
+  const peerIds = rooms
+    .filter((room) => room.type === "direct")
+    .flatMap((room) => room.members
+      .map((member) => idStr(member.user))
+      .filter((memberId) => memberId !== userId));
+  const peerUsers = await UserModel.find({ _id: { $in: peerIds } }).select("_id username").lean();
+  const peerNames = new Map(peerUsers.map((user) => [idStr(user._id), user.username as string]));
   const rows = await Promise.all(rooms.map(async (r) => {
     const me = r.members.find((m) => idStr(m.user) === userId)!;
+    const peerId = r.type === "direct"
+      ? r.members.map((member) => idStr(member.user)).find((memberId) => memberId !== userId)
+      : undefined;
     const last = (await MessageModel.findOne({ room: r._id, deletedAt: null })
       .sort({ _id: -1 }).populate("sender", "username").lean()) as any;
     const unreadFilter: Record<string, unknown> = { room: r._id, deletedAt: null, sender: { $ne: userId } };
@@ -53,6 +66,7 @@ export async function listRoomsForUser(userId: string) {
     return {
       id: idStr(r._id),
       type: r.type,
+      direct_peer_name: peerId ? peerNames.get(peerId) ?? null : null,
       encrypted_metadata: r.encryptedMetadata,
       key_envelopes: r.keyEnvelopes?.filter((item) => idStr(item.user) === userId).map((item) => ({ key_version: item.keyVersion, wrapped_key: item.wrappedKey })) ?? [],
       current_key_version: r.currentKeyVersion,
