@@ -183,7 +183,7 @@ export default function ChatRoomPage() {
     if (!room || !canManageMembers || inviteBusy) return;
     setInviteBusy(true); setError("");
     try {
-      const result = await api<{ token: string }>("/rooms/" + roomId + "/invitations", {
+      const result = await api<{ token: string }>("/invitations/rooms/" + roomId + "/invitations", {
         method: "POST", body: JSON.stringify({ mode: inviteMode, displayName: roomName }),
       });
       setInviteUrl(window.location.origin + "/invite/" + result.token);
