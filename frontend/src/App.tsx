@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { isAuthenticated } from "./api";
 import { isCryptoUnlocked } from "./crypto";
 import AdminPage from "./pages/AdminPage";
@@ -9,7 +9,8 @@ import ProfilePage from "./pages/ProfilePage";
 import InviteJoinPage from "./pages/InviteJoinPage";
 
 function Protected({ children }: { children: JSX.Element }) {
-  return isAuthenticated() && isCryptoUnlocked() ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  return isAuthenticated() && isCryptoUnlocked() ? children : <Navigate to="/login" replace state={{ from: location }} />;
 }
 
 export default function App() {
