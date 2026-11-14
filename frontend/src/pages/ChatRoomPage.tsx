@@ -43,6 +43,7 @@ export default function ChatRoomPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteMode, setInviteMode] = useState<"approval" | "instant">("approval");
   const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteId, setInviteId] = useState("");
   const [pendingRequests, setPendingRequests] = useState<Array<{ user_id: string; username: string; status: string }>>([]);
   const [inviteBusy, setInviteBusy] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -183,11 +184,20 @@ export default function ChatRoomPage() {
     if (!room || !canManageMembers || inviteBusy) return;
     setInviteBusy(true); setError("");
     try {
-      const result = await api<{ token: string }>("/invitations/rooms/" + roomId + "/invitations", {
+      const result = await api<{ token: string; invitationId: string }>("/invitations/rooms/" + roomId + "/invitations", {
         method: "POST", body: JSON.stringify({ mode: inviteMode, displayName: roomName }),
       });
       setInviteUrl(window.location.origin + "/invite/" + result.token);
+      setInviteId(result.invitationId);
     } catch (err) { setError((err as Error).message); }
+    finally { setInviteBusy(false); }
+  }
+
+  async function revokeInvitation() {
+    if (!inviteId || inviteBusy) return;
+    setInviteBusy(true);
+    try { await api("/invitations/rooms/" + roomId + "/invitations/" + inviteId, { method: "DELETE" }); setInviteUrl(""); setInviteId(""); }
+    catch (err) { setError((err as Error).message); }
     finally { setInviteBusy(false); }
   }
 
@@ -283,7 +293,7 @@ export default function ChatRoomPage() {
               <option value="instant">Instant joining — valid link holders can join</option>
             </select>
             <button type="button" className="full-button" disabled={inviteBusy} onClick={() => void createInvitation()}>{inviteBusy ? "Creating secure link…" : "Generate invitation link"}</button>
-            {inviteUrl && <div className="invite-link-box"><input className="modal-input" readOnly value={inviteUrl} aria-label="Invitation link" /><button type="button" className="full-button" onClick={() => void navigator.clipboard.writeText(inviteUrl)}>Copy invitation link</button></div>}
+            {inviteUrl && <div className="invite-link-box"><input className="modal-input" readOnly value={inviteUrl} aria-label="Invitation link" /><button type="button" className="full-button" onClick={() => void navigator.clipboard.writeText(inviteUrl)}>Copy invitation link</button><button type="button" className="text-action" disabled={inviteBusy} onClick={() => void revokeInvitation()}>Revoke this link</button></div>}
             <p className="security-note">The link contains no encryption key. A fresh group key is generated and wrapped for every current member and the joining member. New members cannot decrypt earlier messages.</p>
           </section>
         </div>
