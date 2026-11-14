@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { cacheRoomKey, createRoomKey, decryptRoomMetadata, encryptRoomMetadataWithKey, getCurrentUserId, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
-import { getSocket } from "../socket";
 import type { Room } from "../types";
 
 type PublicKeyResponse = { public_key: JsonWebKey };
@@ -42,12 +41,14 @@ export default function RoomsPage() {
   useEffect(() => {
     void load();
     void api<{ role: string }>("/users/me").then((me) => setIsAdmin(me.role === "admin")).catch(() => setIsAdmin(false));
-    const socket = getSocket();
-    socket.on("message:new", load);
-    socket.on("room:updated", load);
-    socket.on("room:added", load);
-    socket.on("room:removed", load);
-    return () => { socket.off("message:new", load); socket.off("room:updated", load); socket.off("room:added", load); socket.off("room:removed", load); };
+
+    // Keep the inbox in sync over the same-origin authenticated HTTP API.
+    // This avoids a second, cross-site Socket.IO session that can fail when
+    // browsers block third-party cookies.
+    const refresh = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 5000);
+    return () => window.clearInterval(refresh);
   }, []);
 
   useEffect(() => {
