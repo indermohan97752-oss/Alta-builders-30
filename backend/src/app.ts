@@ -40,7 +40,7 @@ export function createApp() {
   // The API does not serve HTML, so CSP is configured at the frontend/reverse proxy.
   app.use(helmet({ contentSecurityPolicy: false, strictTransportSecurity: config.env === "production" ? undefined : false }));
   app.use(cors({ origin: config.clientOrigin, credentials: true }));
-  app.use(express.json({ limit: "32kb" }));
+  app.use(express.json({ limit: "64kb" }));
 
   // SameSite cookies plus an Origin allowlist protect cookie-authenticated writes from CSRF.
   app.use("/api", (req, res, next) => {
