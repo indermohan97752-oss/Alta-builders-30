@@ -248,3 +248,36 @@ export async function makeSelfKeyEnvelope(rawRoomKey: Uint8Array, publicJwk: Jso
 export function base64UrlSafePublicKey(jwk: JsonWebKey) {
   return jwk;
 }
+
+/** Invitation display labels are encrypted with a key derived from the high-entropy invite token.
+ * The server stores only this ciphertext; only someone holding the invitation URL can read it. */
+export function createInvitationToken(): string {
+  return toBase64(randomBytes(32)).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+}
+
+export async function encryptInvitationLabel(token: string, label: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", toArrayBuffer(encoder.encode("alta-chat-invite-label-key-v1:" + token)));
+  const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = randomBytes(12);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(iv), additionalData: toArrayBuffer(encoder.encode("alta-chat-invite-label-v1")), tagLength: 128 },
+    key,
+    toArrayBuffer(encoder.encode(label)),
+  );
+  return btoa(JSON.stringify({ iv: toBase64(iv), ciphertext: toBase64(ciphertext) }))
+    .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+}
+
+export async function decryptInvitationLabel(token: string, encrypted: string): Promise<string> {
+  const normalized = encrypted.replace(/-/g, "+").replace(/_/g, "/");
+  const json = atob(normalized + "=".repeat((4 - normalized.length % 4) % 4));
+  const blob = JSON.parse(json) as CipherBlob;
+  const digest = await crypto.subtle.digest("SHA-256", toArrayBuffer(encoder.encode("alta-chat-invite-label-key-v1:" + token)));
+  const key = await crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["decrypt"]);
+  const clear = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(fromBase64(blob.iv)), additionalData: toArrayBuffer(encoder.encode("alta-chat-invite-label-v1")), tagLength: 128 },
+    key,
+    toArrayBuffer(fromBase64(blob.ciphertext)),
+  );
+  return decoder.decode(clear);
+}
