@@ -52,7 +52,7 @@ export default function AuthPage() {
 
   return (
     <main className="screen auth">
-      <h1>ChatApp</h1><p className="muted">End-to-end encrypted chat</p>
+      <h1>Alta Chat</h1><p className="muted">End-to-end encrypted chat</p>
       <form onSubmit={submit}>
         {mode === "signup" && <>
           <input placeholder="Username (public handle)" value={form.username} onChange={set("username")} required minLength={3} maxLength={30} pattern="[A-Za-z0-9_]{3,30}" title="Use 3-30 letters, numbers or underscores." />
