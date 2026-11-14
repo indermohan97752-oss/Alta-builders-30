@@ -109,4 +109,27 @@ messageSchema.pre("validate", function () {
 export const UserModel = mongoose.model("User", userSchema);
 export const AdminBootstrapClaimModel = mongoose.model("AdminBootstrapClaim", adminBootstrapClaimSchema);
 export const RoomModel = mongoose.model("Room", roomSchema);
+
+const groupInvitationSchema = new Schema(
+  {
+    tokenHash: { type: String, required: true, unique: true, index: true },
+    room: { type: ObjectId, ref: "Room", required: true, index: true },
+    createdBy: { type: ObjectId, ref: "User", required: true },
+    mode: { type: String, enum: ["approval", "instant"], required: true },
+    displayName: { type: String, required: true, minlength: 1, maxlength: 60 },
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+    revokedAt: { type: Date, default: null },
+    requests: {
+      type: [{
+        user: { type: ObjectId, ref: "User", required: true },
+        requestedAt: { type: Date, default: Date.now },
+      }],
+      default: [],
+    },
+  },
+  { collection: "group_invitations", timestamps: { createdAt: true, updatedAt: true } },
+);
+groupInvitationSchema.index({ room: 1, createdAt: -1 });
+
+export const GroupInvitationModel = mongoose.model("GroupInvitation", groupInvitationSchema);
 export const MessageModel = mongoose.model("Message", messageSchema);
