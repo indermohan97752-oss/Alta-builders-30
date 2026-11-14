@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { cacheRoomKey, createRoomKey, decryptRoomMetadata, encryptRoomMetadataWithKey, getCurrentUserId, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
+import { cacheRoomKey, clearRoomKeyCache, createRoomKey, decryptRoomMetadata, encryptRoomMetadataWithKey, getCurrentUserId, unwrapRoomKey, wrapRoomKeyForUser } from "../crypto";
 import type { Room } from "../types";
 
 type PublicKeyResponse = { public_key: JsonWebKey };
@@ -28,7 +28,8 @@ export default function RoomsPage() {
         try {
           for (const envelope of room.key_envelopes) await unwrapRoomKey(room.id, envelope.wrapped_key, envelope.key_version);
           const meta = await decryptRoomMetadata(room.id, room.encrypted_metadata, room.current_key_version);
-          return { ...room, name: meta.name };
+          const displayName = room.type === "direct" ? room.direct_peer_name ?? meta.name : meta.name;
+          return { ...room, name: displayName };
         } catch {
           return { ...room, name: "Locked encrypted room" };
         }
@@ -81,11 +82,19 @@ export default function RoomsPage() {
         wrapRoomKeyForUser(raw, theirs.public_key).then((wrappedKey) => ({ userId: user.id, wrappedKey })),
       ]);
       raw.fill(0);
-      const created = await api<{ id: string }>("/rooms/dm", {
+      const created = await api<{ id: string; created?: boolean }>("/rooms/dm", {
         method: "POST",
         body: JSON.stringify({ userId: user.id, encryptedMetadata, keyEnvelopes }),
       });
-      cacheRoomKey(created.id, 1, key);
+      if (created.created) {
+        // Only cache the key we generated when the server actually created
+        // the DM. Existing rooms already have a different persisted key.
+        cacheRoomKey(created.id, 1, key);
+      } else {
+        // A previous build could have cached a throwaway key over the real
+        // DM key. Force the room page to unwrap the server's real envelope.
+        clearRoomKeyCache(created.id);
+      }
       navigate(`/rooms/${created.id}`);
     } catch (err) { setError((err as Error).message); }
     finally { setSaving(false); }
